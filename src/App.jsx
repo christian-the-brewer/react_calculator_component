@@ -18,7 +18,14 @@ export const ACTIONS = {
 function reducer(state, {type, payload}) {
   switch (type) {
     case ACTIONS.ADD_DIGIT:
-    
+      if (state.overwrite) {
+        return {
+          ...state,
+          currentOperand: payload.digit,
+          overwrite: false
+        }
+      }
+      
       if (payload.digit === '0' && state.currentOperand === '0') {
         return state
       }
@@ -64,13 +71,42 @@ function reducer(state, {type, payload}) {
       }
       
       case ACTIONS.EVALUATE:
-        return {
+        
+          if (state.operation == null || state.currentOperand == null || state.prevOperand == null) {
+            return state
+          }
           
+          return {
+            ...state,
+            overwrite: true,
+            prevOperand: null,
+            operation: null,
+            currentOperand: evaluate(state)
+          }
+          
+      case ACTIONS.DELETE_DIGIT:
+        if (state.overwrite) {
+          return {
+            ...state,
+            currentOperand: null,
+            overwrite: false
+          }
+        }
+        if (state.currentOperand == null) {
+          return state
+        }
+        if (state.currentOperand.length == 1) {
+          return {
+            ...state,
+            currentOperand: null
+          }
         }
         
-      
-    default:
-      return state
+        return {
+          ...state,
+          currentOperand: state.currentOperand.slice(0,-1)
+        }
+   
   }
 }
 
@@ -101,6 +137,16 @@ function evaluate({currentOperand, prevOperand, operation}) {
   return computation.toString()
 }
 
+const integer_format = new Intl.NumberFormat('en-us', {
+  maximumFractionDigits: 0
+})
+
+function formatOperand(operand) {
+  if (operand == null) return
+  const [integer, decimal] = operand.split('.')
+  if (decimal == null) return integer_format.format(integer)
+  return `${integer_format.format(integer)}.${decimal}`
+}
 
 function App() {
   const [{currentOperand, prevOperand, operation}, dispatch] =useReducer(reducer, {})
@@ -111,18 +157,20 @@ function App() {
       <div className="output">
         
         <div className="previous-operand">
-          {prevOperand} {operation}
+          {formatOperand(prevOperand)} {operation}
         </div>
         
         <div className="previous-operand">
-          {currentOperand}
+          {formatOperand(currentOperand)}
         </div>
       </div>
       {/* Input Section */}
       <button 
       onClick={() => dispatch({type: ACTIONS.CLEAR})}
       className="span-two">AC</button>
-      <button>DEL</button>
+      <button
+      onClick={() => dispatch({type: ACTIONS.DELETE_DIGIT})}
+      >DEL</button>
       <OperationButton 
       operation='/'
       dispatch={dispatch}
@@ -187,7 +235,9 @@ function App() {
       digit={'0'}
       dispatch={dispatch}
       />
-      <button className="span-two"><FaEquals /></button>
+      <button 
+      onClick={() => dispatch({type: ACTIONS.EVALUATE})}
+      className="span-two"><FaEquals /></button>
     </div>
   );
 }
